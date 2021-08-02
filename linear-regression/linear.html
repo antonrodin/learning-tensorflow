@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Regresion Example</title>
+</head>
+<body>
+    <h1>Linear Regression Example</h1>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
+    <script>
+
+        function normaliseMinMax(tensor) {
+            let min = tensor.min();
+            let max = tensor.max();
+
+            return {
+                tensor: tensor.sub(min).div(max.sub(min)),
+                min,
+                max
+            }
+        }
+
+        function denormalise(tensor, min, max) {
+            return tensor.mul(max.sub(min)).add(min);
+        }
+
+        // Create graph
+        async function plot(pointsArray, featureName) {
+            tfvis.render.scatterplot(
+                { name: `${featureName} vs House Price` },
+                { values: [pointsArray], series: ["original"] },
+                {
+                    xLabel: featureName,
+                    yLabel: "Price"
+                }
+            );
+        }
+
+        (async function() {
+            
+            const endpoint = "http://127.0.0.1:5500/antonrodin/learning-tensorflow/linear-regression"
+        
+            const houseSalesDataset = tf.data.csv(`${endpoint}/kc_house_data.csv`);
+
+            // Create X and Y data for visualization and tensors
+            const points = houseSalesDataset.map(record => {
+
+                return {
+                    x: record.sqft_living,
+                    y: record.price
+                }
+            });
+
+            // plot(await points.toArray(), "Square Feet");
+
+            // Create Features (INPUT)
+            const featureValues = await points.map(point => point.x).toArray();
+            const featureTensor = tf.tensor2d(featureValues, [featureValues.length, 1]);
+
+            // Create Labels (OUTPUT)
+            const labelValues = await points.map(point => point.y).toArray();
+            const labelTensor = tf.tensor2d(labelValues, [labelValues.length, 1]);
+
+            featureTensor.print();
+            labelTensor.print();
+
+            const normalisedFeature = normaliseMinMax(featureTensor);
+            const normalisedLabel = normaliseMinMax(labelTensor);
+
+            normalisedFeature.tensor.print();
+            normalisedLabel.tensor.print();
+
+            denormalisedFeature = denormalise(normalisedFeature.tensor, normalisedFeature.min, normalisedFeature.max);
+            denormalisedLabel = denormalise(normalisedLabel.tensor, normalisedLabel.min, normalisedLabel.max);
+
+            denormalisedFeature.print();
+            denormalisedLabel.print();
+
+        })();
+
+    </script>
+</body>
+</html>

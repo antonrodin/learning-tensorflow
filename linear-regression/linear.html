@@ -40,46 +40,118 @@
             );
         }
 
+        /**
+         * Create new secuential model
+         */
+        function createModel() {
+            let model = tf.sequential();
+
+            model.add(tf.layers.dense({
+                units: 1,
+                useBias: true,
+                activation: "linear",
+                inputDim: 1
+            }));
+
+            let optimizer = tf.train.sgd(0.1);
+            model.compile({
+                loss: "meanSquaredError",
+                optimizer
+            });
+
+            return model;
+        }
+
+        async function trainModel(model, features, labels) {
+            return await model.fit(features, labels, {
+                epochs: 20,
+                callbacks: {
+                    onEpochEnd: (epoch, log) => {
+                        console.log(`Epoch ${epoch}: loss: ${log.loss}`);
+                    }
+                }
+            })
+        }
+
         (async function() {
             
             const endpoint = "http://127.0.0.1:5500/antonrodin/learning-tensorflow/linear-regression"
         
             const houseSalesDataset = tf.data.csv(`${endpoint}/kc_house_data.csv`);
 
+            pointsArray = [];
+            await houseSalesDataset.forEachAsync(element => pointsArray.push({
+                x: element.sqft_living,
+                y: element.price
+            }));
+            //console.log(testArray);
+
             // Create X and Y data for visualization and tensors
-            const points = houseSalesDataset.map(record => {
+            // const pointsDataset = houseSalesDataset.map(record => {
 
-                return {
-                    x: record.sqft_living,
-                    y: record.price
-                }
+            //     return {
+            //         x: record.sqft_living,
+            //         y: record.price
+            //     }
+            // });
+
+            // Get an array (even) and shuffle
+            //const pointsArray = await pointsDataset.toArray();
+            if(pointsArray.length % 2) {
+                pointsArray.pop();
+            }
+            //console.log(pointsArray);
+            tf.util.shuffle(pointsArray);
+        
+
+            //plot(pointsArray, "Square Feet");
+
+            // Memory Management
+            tf.tidy(() => {
+                // Create Features (INPUT)
+                const featureValues = pointsArray.map(point => point.x);
+                const featureTensor = tf.tensor2d(featureValues, [featureValues.length, 1]);
+
+                // Create Labels (OUTPUT)
+                const labelValues = pointsArray.map(point => point.y);
+                const labelTensor = tf.tensor2d(labelValues, [labelValues.length, 1]);
+
+                // featureTensor.print();
+                // labelTensor.print();
+
+                // Normalise tensors
+                const normalisedFeature = normaliseMinMax(featureTensor);
+                const normalisedLabel = normaliseMinMax(labelTensor);
+
+                // normalisedFeature.tensor.print();
+                // normalisedLabel.tensor.print();
+
+                // Denormalise tensors
+                // denormalisedFeature = denormalise(normalisedFeature.tensor, normalisedFeature.min, normalisedFeature.max);
+                // denormalisedLabel = denormalise(normalisedLabel.tensor, normalisedLabel.min, normalisedLabel.max);
+
+                // denormalisedFeature.print();
+                // denormalisedLabel.print();
+
+                // Split 50% and 50% for training and testing data
+                const [trainingFeatureTensor, testingFeatureTensor] = tf.split(normalisedFeature.tensor, 2);
+                const [trainingLabelTensor, testingLabelTensor] = tf.split(normalisedLabel.tensor, 2);
+
+
+                // Create a model
+                let model = createModel();
+                
+                // Visualize model
+                //model.summary();
+                tfvis.show.modelSummary({ name: "Model Summary" }, model);
+                // Visualize layer
+                let layer = model.getLayer(undefined, 0);
+                tfvis.show.layer({ name: "Layer 0" }, layer);
+
+                // Train a model
+                trainModel(model, trainingFeatureTensor, trainingLabelTensor);
             });
-
-            // plot(await points.toArray(), "Square Feet");
-
-            // Create Features (INPUT)
-            const featureValues = await points.map(point => point.x).toArray();
-            const featureTensor = tf.tensor2d(featureValues, [featureValues.length, 1]);
-
-            // Create Labels (OUTPUT)
-            const labelValues = await points.map(point => point.y).toArray();
-            const labelTensor = tf.tensor2d(labelValues, [labelValues.length, 1]);
-
-            featureTensor.print();
-            labelTensor.print();
-
-            const normalisedFeature = normaliseMinMax(featureTensor);
-            const normalisedLabel = normaliseMinMax(labelTensor);
-
-            normalisedFeature.tensor.print();
-            normalisedLabel.tensor.print();
-
-            denormalisedFeature = denormalise(normalisedFeature.tensor, normalisedFeature.min, normalisedFeature.max);
-            denormalisedLabel = denormalise(normalisedLabel.tensor, normalisedLabel.min, normalisedLabel.max);
-
-            denormalisedFeature.print();
-            denormalisedLabel.print();
-
+        
         })();
 
     </script>
